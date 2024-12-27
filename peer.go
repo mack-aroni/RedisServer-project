@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 
 	"github.com/tidwall/resp"
@@ -30,58 +30,78 @@ func (p *Peer) Send(msg []byte) (int, error) {
 	return p.conn.Write(msg)
 }
 
+// Attempt to Parse RESP Command
+func parseCommand(v resp.Value) (Command, error) {
+	// Check for valid RESP array
+	if v.Type() != resp.Array {
+		return nil, fmt.Errorf("invalid command format: expected array, got %s", v.Type())
+	}
+
+	// Error check empty array
+	rawArray := v.Array()
+	if len(rawArray) == 0 {
+		return nil, fmt.Errorf("empty command array")
+	}
+
+	// Extract CMD from first index
+	rawCMD := rawArray[0].String()
+	switch rawCMD {
+
+	case CommandGET:
+		if len(rawArray) < 2 {
+			return nil, fmt.Errorf("missing argument for GET command")
+		}
+		return GetCommand{key: rawArray[1].Bytes()}, nil
+
+	case CommandSET:
+		if len(rawArray) < 3 {
+			return nil, fmt.Errorf("missing arguments for SET command")
+		}
+		return SetCommand{key: rawArray[1].Bytes(), val: rawArray[2].Bytes()}, nil
+
+	case CommandHELLO:
+		if len(rawArray) < 2 {
+			return nil, fmt.Errorf("missing argument for HELLO command")
+		}
+		return HelloCommand{val: rawArray[1].String()}, nil
+
+	case CommandCLIENT:
+		if len(rawArray) < 2 {
+			return nil, fmt.Errorf("missing argument for CLIENT command")
+		}
+		return ClientCommand{val: rawArray[1].String()}, nil
+
+	default:
+		return nil, fmt.Errorf("unknown command: %s", rawCMD)
+	}
+}
+
 // Peer Readloop from RESP->Server
 func (p *Peer) readLoop() error {
 	rd := resp.NewReader(p.conn)
 
 	for {
+		// Read a RESP value from the connection
 		v, _, err := rd.ReadValue()
 		if err == io.EOF {
+			logMessage(slog.LevelInfo, "peer disconnected", "remoteAddr", p.conn.RemoteAddr())
 			p.delCh <- p
 			break
 		}
 		if err != nil {
-			log.Fatal(err)
+			logMessage(slog.LevelError, "error reading value", "err", err, "remoteAddr", p.conn.RemoteAddr())
+			continue
 		}
 
-		// Parse RESP Commands Into Server Commands
-		var cmd Command
-		if v.Type() == resp.Array {
-			rawCMD := v.Array()[0]
-
-			switch rawCMD.String() {
-
-			case CommandGET:
-				cmd = GetCommand{
-					key: v.Array()[1].Bytes(),
-				}
-
-			case CommandSET:
-				cmd = SetCommand{
-					key: v.Array()[1].Bytes(),
-					val: v.Array()[2].Bytes(),
-				}
-
-			case CommandHELLO:
-				cmd = HelloCommand{
-					val: v.Array()[1].String(),
-				}
-
-			case CommandCLIENT:
-				cmd = ClientCommand{
-					val: v.Array()[1].String(),
-				}
-
-			default:
-				fmt.Printf("got unkown command => %+v\n", v.Array())
-
-			}
-
-			p.msgCh <- Message{
-				cmd:  cmd,
-				peer: p,
-			}
+		// Parse the command using the new parseCommand function
+		cmd, err := parseCommand(v)
+		if err != nil {
+			logMessage(slog.LevelError, "command parsing error", "err", err, "rawValue", v, "remoteAddr", p.conn.RemoteAddr())
+			continue
 		}
+
+		// Send the parsed command to the server
+		p.msgCh <- Message{cmd: cmd, peer: p}
 	}
 	return nil
 }

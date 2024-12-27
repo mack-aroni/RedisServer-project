@@ -19,7 +19,8 @@ func TestOfficialRedisClient(t *testing.T) {
 	go func() {
 		log.Fatal(server.Start())
 	}()
-	time.Sleep(time.Millisecond * 400)
+
+	time.Sleep(time.Second)
 
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("localhost%s", ":5001"),
@@ -35,10 +36,12 @@ func TestOfficialRedisClient(t *testing.T) {
 		if err := rdb.Set(context.Background(), key, val, 0).Err(); err != nil {
 			t.Fatal(err)
 		}
+
 		newVal, err := rdb.Get(context.Background(), key).Result()
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		if newVal != val {
 			t.Fatalf("expected %s but got %s", val, newVal)
 		}
