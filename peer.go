@@ -9,12 +9,14 @@ import (
 	"github.com/tidwall/resp"
 )
 
+// Holds RESP Connection/Server Interaction Chans
 type Peer struct {
 	conn  net.Conn
 	msgCh chan Message
 	delCh chan *Peer
 }
 
+// Peer Constructor
 func NewPeer(conn net.Conn, msgCh chan Message, delCh chan *Peer) *Peer {
 	return &Peer{
 		conn:  conn,
@@ -23,10 +25,12 @@ func NewPeer(conn net.Conn, msgCh chan Message, delCh chan *Peer) *Peer {
 	}
 }
 
+// Send to RESP/Peer
 func (p *Peer) Send(msg []byte) (int, error) {
 	return p.conn.Write(msg)
 }
 
+// Peer Readloop from RESP->Server
 func (p *Peer) readLoop() error {
 	rd := resp.NewReader(p.conn)
 
@@ -40,6 +44,7 @@ func (p *Peer) readLoop() error {
 			log.Fatal(err)
 		}
 
+		// Parse RESP Commands Into Server Commands
 		var cmd Command
 		if v.Type() == resp.Array {
 			rawCMD := v.Array()[0]
@@ -47,17 +52,11 @@ func (p *Peer) readLoop() error {
 			switch rawCMD.String() {
 
 			case CommandGET:
-				if len(v.Array()) != 2 {
-					return fmt.Errorf("invalid num of vars for GET command")
-				}
 				cmd = GetCommand{
 					key: v.Array()[1].Bytes(),
 				}
 
 			case CommandSET:
-				if len(v.Array()) != 3 {
-					return fmt.Errorf("invalid num of vars for SET command")
-				}
 				cmd = SetCommand{
 					key: v.Array()[1].Bytes(),
 					val: v.Array()[2].Bytes(),

@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	CommandSET    = "SET"
-	CommandGET    = "GET"
+	CommandSET    = "set"
+	CommandGET    = "get"
 	CommandHELLO  = "hello"
 	CommandCLIENT = "client"
 )
@@ -33,6 +33,7 @@ type ClientCommand struct {
 	val string
 }
 
+// Helper Function to Parse KV into RESP Format
 func respWriteMap(m map[string]string) []byte {
 	buf := &bytes.Buffer{}
 	buf.WriteString("%" + fmt.Sprintf("%d\r\n", len(m)))

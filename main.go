@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net"
 	"reflect"
+
+	"github.com/tidwall/resp"
 )
 
 const defaultListenAddr = ":5001"
@@ -29,6 +31,7 @@ type Server struct {
 	kv *KV
 }
 
+// Message struct
 type Message struct {
 	cmd  Command
 	peer *Peer
@@ -65,13 +68,20 @@ func (s *Server) Start() error {
 	return s.acceptLoop()
 }
 
+// Chan Message Handler
 func (s *Server) handleMessage(msg Message) error {
 	slog.Info("go message from client", "type", reflect.TypeOf(msg.cmd))
 
 	switch v := msg.cmd.(type) {
 
 	case SetCommand:
-		return s.kv.Set(v.key, v.val)
+		if err := s.kv.Set(v.key, v.val); err != nil {
+			return err
+		}
+
+		if err := resp.NewWriter(msg.peer.conn).WriteString("OK"); err != nil {
+			return err
+		}
 
 	case GetCommand:
 		val, ok := s.kv.Get(v.key)
@@ -79,18 +89,13 @@ func (s *Server) handleMessage(msg Message) error {
 			return fmt.Errorf("key not found")
 		}
 
-		_, err := msg.peer.Send(val)
-		if err != nil {
-			return fmt.Errorf("peer send error: %s", err)
+		if err := resp.NewWriter(msg.peer.conn).WriteString(string(val)); err != nil {
+			return err
 		}
 
 	case HelloCommand:
 		spec := map[string]string{
-			"server":  "redis",
-			"version": "6.0.0",
-			"proto":   "3",
-			"mode":    "standalone",
-			"role":    "master",
+			"server": "redis",
 		}
 
 		_, err := msg.peer.Send(respWriteMap(spec))
@@ -98,7 +103,11 @@ func (s *Server) handleMessage(msg Message) error {
 			return err
 		}
 
-		fmt.Println("client hello command")
+	case ClientCommand:
+		if err := resp.NewWriter(msg.peer.conn).WriteString("OK"); err != nil {
+			return err
+		}
+
 	}
 
 	return nil
@@ -128,7 +137,7 @@ func (s *Server) loop() {
 	}
 }
 
-// can merge with start handler
+// Connection Accept Loop
 func (s *Server) acceptLoop() error {
 	for {
 		conn, err := s.ln.Accept()
@@ -151,7 +160,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 }
 
-// Main Server Run Code
+// Main Server Exec Code
 func main() {
 	listenAddr := flag.String("listenAddr", defaultListenAddr, "listen address of goredis server")
 	flag.Parse()
