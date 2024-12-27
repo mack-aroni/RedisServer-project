@@ -1,2 +1,2 @@
 # RedisServer-project
-Redis Server in GOLang
+Standalone Redis Server in GOLang, interfaces with Redis RESP API
