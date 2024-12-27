@@ -1,5 +1,5 @@
 run: build
-	@./bin/fs
+	@./bin/fs --listenAddr :5001
 
 build: 
 	@go build -o bin/fs .
