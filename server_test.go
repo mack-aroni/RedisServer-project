@@ -18,6 +18,7 @@ func TestOfficialRedisClient(t *testing.T) {
 	})
 	go func() {
 		log.Fatal(server.Start())
+		defer server.Shutdown()
 	}()
 
 	time.Sleep(time.Second)
@@ -28,11 +29,11 @@ func TestOfficialRedisClient(t *testing.T) {
 		DB:       0,
 	})
 
-	testCases := map[string]string{
+	entries := map[string]string{
 		"foo": "bar",
 	}
 
-	for key, val := range testCases {
+	for key, val := range entries {
 		if err := rdb.Set(context.Background(), key, val, 0).Err(); err != nil {
 			t.Fatal(err)
 		}
