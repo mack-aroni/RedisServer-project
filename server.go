@@ -102,7 +102,7 @@ func (s *Server) handleMessage(msg Message) error {
 	case SetCommand:
 		if err := s.kv.Set(v.key, v.val); err != nil {
 			logMessage(slog.LevelError, "SET Command Failed", "err", err, "key", string(v.key))
-			return resp.NewWriter(msg.peer.conn).WriteString("SET Command Failed")
+			return resp.NewWriter(msg.peer.conn).WriteString("(null)")
 		}
 
 		if err := resp.NewWriter(msg.peer.conn).WriteString("OK"); err != nil {
@@ -117,7 +117,7 @@ func (s *Server) handleMessage(msg Message) error {
 		if !ok {
 			err := fmt.Errorf("key not found")
 			logMessage(slog.LevelError, "GET Command Failed", "err", err, "key", string(v.key))
-			return resp.NewWriter(msg.peer.conn).WriteString("GET Command Failed")
+			return resp.NewWriter(msg.peer.conn).WriteString("(nil)")
 		}
 
 		if err := resp.NewWriter(msg.peer.conn).WriteString(string(val)); err != nil {
@@ -132,7 +132,7 @@ func (s *Server) handleMessage(msg Message) error {
 		if !ok {
 			err := fmt.Errorf("key not found")
 			logMessage(slog.LevelError, "DEL Command Failed", "err", err, "key", string(v.key))
-			return resp.NewWriter(msg.peer.conn).WriteString("DEL Command Failed")
+			return resp.NewWriter(msg.peer.conn).WriteString("0")
 		}
 
 		if err := resp.NewWriter(msg.peer.conn).WriteString("1"); err != nil {

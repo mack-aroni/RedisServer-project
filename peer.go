@@ -99,15 +99,15 @@ func (p *Peer) readLoop() error {
 			continue
 		}
 
-		// Parse the command using the new parseCommand function
-		logMessage(slog.LevelInfo, "Received RESP Value", "value", v)
+		// Parse the command using the parseCommand function
+		logMessage(slog.LevelInfo, "Peer received RESP value", "value", v)
 		cmd, err := parseCommand(v)
 		if err != nil {
 			logMessage(slog.LevelError, "Command parsing error", "err", err, "rawValue", v, "remoteAddr", p.conn.RemoteAddr())
 			continue
 		}
 
-		// Send the parsed command to the server
+		// Send parsed command to the server
 		p.msgCh <- Message{cmd: cmd, peer: p}
 	}
 	return nil

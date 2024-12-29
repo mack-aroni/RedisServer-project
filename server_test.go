@@ -54,9 +54,13 @@ func TestOfficialRedisClient(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		_, err = rdb.Get(context.Background(), key).Result()
+		newVal, err = rdb.Get(context.Background(), key).Result()
 		if err != nil {
-			t.Fatalf("expected key %s to be deleted, but got error: %v", key, err)
+			t.Fatal(err)
+		}
+
+		if newVal != "(nil)" {
+			t.Fatalf("expected key %s to be deleted, but got: %s", key, newVal)
 		}
 	}
 
