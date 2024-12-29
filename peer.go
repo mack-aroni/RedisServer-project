@@ -47,6 +47,18 @@ func parseCommand(v resp.Value) (Command, error) {
 	rawCMD := rawArray[0].String()
 	switch rawCMD {
 
+	case CommandHELLO:
+		if len(rawArray) < 2 {
+			return nil, fmt.Errorf("missing argument for HELLO command")
+		}
+		return HelloCommand{val: rawArray[1].String()}, nil
+
+	case CommandCLIENT:
+		if len(rawArray) < 2 {
+			return nil, fmt.Errorf("missing argument for CLIENT command")
+		}
+		return ClientCommand{val: rawArray[1].String()}, nil
+
 	case CommandGET:
 		if len(rawArray) < 2 {
 			return nil, fmt.Errorf("missing argument for GET command")
@@ -59,17 +71,11 @@ func parseCommand(v resp.Value) (Command, error) {
 		}
 		return SetCommand{key: rawArray[1].Bytes(), val: rawArray[2].Bytes()}, nil
 
-	case CommandHELLO:
+	case CommandDEL:
 		if len(rawArray) < 2 {
-			return nil, fmt.Errorf("missing argument for HELLO command")
+			return nil, fmt.Errorf("missing argument for DEL command")
 		}
-		return HelloCommand{val: rawArray[1].String()}, nil
-
-	case CommandCLIENT:
-		if len(rawArray) < 2 {
-			return nil, fmt.Errorf("missing argument for CLIENT command")
-		}
-		return ClientCommand{val: rawArray[1].String()}, nil
+		return DelCommand{key: rawArray[1].Bytes()}, nil
 
 	default:
 		return nil, fmt.Errorf("unknown command: %s", rawCMD)
@@ -84,19 +90,20 @@ func (p *Peer) readLoop() error {
 		// Read a RESP value from the connection
 		v, _, err := rd.ReadValue()
 		if err == io.EOF {
-			logMessage(slog.LevelInfo, "peer disconnected", "remoteAddr", p.conn.RemoteAddr())
+			logMessage(slog.LevelInfo, "Disconnecting", "remoteAddr", p.conn.RemoteAddr())
 			p.delCh <- p
 			break
 		}
 		if err != nil {
-			logMessage(slog.LevelError, "error reading value", "err", err, "remoteAddr", p.conn.RemoteAddr())
+			logMessage(slog.LevelError, "Error reading value", "err", err, "remoteAddr", p.conn.RemoteAddr())
 			continue
 		}
 
 		// Parse the command using the new parseCommand function
+		logMessage(slog.LevelInfo, "Received RESP Value", "value", v)
 		cmd, err := parseCommand(v)
 		if err != nil {
-			logMessage(slog.LevelError, "command parsing error", "err", err, "rawValue", v, "remoteAddr", p.conn.RemoteAddr())
+			logMessage(slog.LevelError, "Command parsing error", "err", err, "rawValue", v, "remoteAddr", p.conn.RemoteAddr())
 			continue
 		}
 

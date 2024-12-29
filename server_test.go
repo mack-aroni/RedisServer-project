@@ -17,16 +17,19 @@ func TestOfficialRedisClient(t *testing.T) {
 		ListenAddr: listenAddr,
 	})
 	go func() {
-		log.Fatal(server.Start())
 		defer server.Shutdown()
+		log.Fatal(server.Start())
 	}()
 
 	time.Sleep(time.Second)
 
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("localhost%s", ":5001"),
-		Password: "",
-		DB:       0,
+		Addr:         fmt.Sprintf("localhost%s", listenAddr),
+		Password:     "",
+		DB:           0,
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
 	})
 
 	entries := map[string]string{
@@ -47,6 +50,14 @@ func TestOfficialRedisClient(t *testing.T) {
 			t.Fatalf("expected %s but got %s", val, newVal)
 		}
 
-		fmt.Println("got val: ", newVal)
+		if err = rdb.Del(context.Background(), key).Err(); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = rdb.Get(context.Background(), key).Result()
+		if err != nil {
+			t.Fatalf("expected key %s to be deleted, but got error: %v", key, err)
+		}
 	}
+
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
-	"reflect"
 
 	"github.com/tidwall/resp"
 )
@@ -80,33 +79,9 @@ func (s *Server) Shutdown() {
 
 // Chan Message Handler
 func (s *Server) handleMessage(msg Message) error {
-	logMessage(slog.LevelInfo, "Received Message from Client", "type", reflect.TypeOf(msg.cmd))
+	// logMessage(slog.LevelInfo, "Received Message from Client", "type", reflect.TypeOf(msg.cmd))
 
 	switch v := msg.cmd.(type) {
-
-	case SetCommand:
-		if err := s.kv.Set(v.key, v.val); err != nil {
-			logMessage(slog.LevelError, "Set Command Failed", "err", err, "key", string(v.key))
-			return err
-		}
-
-		if err := resp.NewWriter(msg.peer.conn).WriteString("OK"); err != nil {
-			logMessage(slog.LevelError, "Response Write Failed for Set Command", "err", err, "key", string(v.key))
-			return err
-		}
-
-	case GetCommand:
-		val, ok := s.kv.Get(v.key)
-		if !ok {
-			err := fmt.Errorf("key not found")
-			logMessage(slog.LevelError, "Get Command Failed", "err", err, "key", string(v.key))
-			return err
-		}
-
-		if err := resp.NewWriter(msg.peer.conn).WriteString(string(val)); err != nil {
-			logMessage(slog.LevelError, "Response Write Failed for Get Command", "err", err, "key", string(v.key))
-			return err
-		}
 
 	case HelloCommand:
 		spec := map[string]string{
@@ -123,6 +98,48 @@ func (s *Server) handleMessage(msg Message) error {
 			logMessage(slog.LevelError, "Client Command Response Failed", "err", err)
 			return err
 		}
+
+	case SetCommand:
+		if err := s.kv.Set(v.key, v.val); err != nil {
+			logMessage(slog.LevelError, "SET Command Failed", "err", err, "key", string(v.key))
+			return resp.NewWriter(msg.peer.conn).WriteString("SET Command Failed")
+		}
+
+		if err := resp.NewWriter(msg.peer.conn).WriteString("OK"); err != nil {
+			logMessage(slog.LevelError, "Response Write Failed for SET Command", "err", err, "key", string(v.key))
+			return err
+		}
+
+		logMessage(slog.LevelInfo, "Client Executed SET Command", "key", v.key, "val", v.val, "peer", msg.peer.conn.RemoteAddr())
+
+	case GetCommand:
+		val, ok := s.kv.Get(v.key)
+		if !ok {
+			err := fmt.Errorf("key not found")
+			logMessage(slog.LevelError, "GET Command Failed", "err", err, "key", string(v.key))
+			return resp.NewWriter(msg.peer.conn).WriteString("GET Command Failed")
+		}
+
+		if err := resp.NewWriter(msg.peer.conn).WriteString(string(val)); err != nil {
+			logMessage(slog.LevelError, "Response Write Failed for GET Command", "err", err, "key", string(v.key))
+			return err
+		}
+
+		logMessage(slog.LevelInfo, "Client Executed GET Command", "key", v.key, "peer", msg.peer.conn.RemoteAddr())
+
+	case DelCommand:
+		ok := s.kv.Del(v.key)
+		if !ok {
+			err := fmt.Errorf("key not found")
+			logMessage(slog.LevelError, "DEL Command Failed", "err", err, "key", string(v.key))
+			return resp.NewWriter(msg.peer.conn).WriteString("DEL Command Failed")
+		}
+
+		if err := resp.NewWriter(msg.peer.conn).WriteString("1"); err != nil {
+			logMessage(slog.LevelError, "Response Write Failed for DEL Command", "err", err, "key", string(v.key))
+			return err
+		}
+
 	}
 
 	return nil

@@ -8,13 +8,22 @@ import (
 )
 
 const (
-	CommandSET    = "set"
-	CommandGET    = "get"
 	CommandHELLO  = "hello"
 	CommandCLIENT = "client"
+	CommandSET    = "set"
+	CommandGET    = "get"
+	CommandDEL    = "del"
 )
 
 type Command interface {
+}
+
+type HelloCommand struct {
+	val string
+}
+
+type ClientCommand struct {
+	val string
 }
 
 type SetCommand struct {
@@ -25,12 +34,8 @@ type GetCommand struct {
 	key []byte
 }
 
-type HelloCommand struct {
-	val string
-}
-
-type ClientCommand struct {
-	val string
+type DelCommand struct {
+	key []byte
 }
 
 // Helper Function to Parse KV into RESP Format

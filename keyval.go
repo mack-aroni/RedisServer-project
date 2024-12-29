@@ -1,6 +1,8 @@
 package main
 
-import "sync"
+import (
+	"sync"
+)
 
 // KV Represents Data Interaction
 type KV struct {
@@ -20,7 +22,7 @@ func (kv *KV) Set(key []byte, val []byte) error {
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
 
-	kv.data[string(key)] = []byte(val)
+	kv.data[string(key)] = val
 	return nil
 }
 
@@ -31,4 +33,17 @@ func (kv *KV) Get(key []byte) ([]byte, bool) {
 
 	val, ok := kv.data[string(key)]
 	return val, ok
+}
+
+// Deletes KV Pair (rw lock)
+func (kv *KV) Del(key []byte) bool {
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+
+	_, exists := kv.data[string(key)]
+	if exists {
+		delete(kv.data, string(key))
+	}
+
+	return exists
 }
